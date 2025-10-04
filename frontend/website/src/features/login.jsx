@@ -1,32 +1,18 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom"; // ✅ NEW
 import RoleSelector from "../components-ui/RoleSelector";
 import { IconUser, IconMail, IconLock } from "../components-ui/icons";
+import InputField from "../components-ui/InputField";
 
-const InputField = ({ icon: Icon, type, placeholder, value, onChange }) => (
-  <div className="relative mb-4">
-    <Icon
-      size={20}
-      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-    />
-    <input
-      type={type}
-      placeholder={placeholder}
-      value={value}
-      onChange={onChange}
-      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-150"
-      required
-    />
-  </div>
-);
-
-const Login = ({ onAuthSuccess }) => {
+const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState("Learner");
 
-  // sliding bar logic for tabs
+  const navigate = useNavigate(); // ✅ NEW
+
   const tabsRef = useRef(null);
   const [indicatorStyle, setIndicatorStyle] = useState({});
 
@@ -45,10 +31,17 @@ const Login = ({ onAuthSuccess }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const userName = isLogin ? name || "Test User" : name;
-    // always take selectedRole now
-    const role = selectedRole;
-    onAuthSuccess(userName, role);
+
+    const role = selectedRole.toLowerCase();
+
+    // ✅ Navigate directly based on selected role
+    if (["learner", "employer", "institution"].includes(role)) {
+      navigate(`/dashboard/${role}`);
+    } else {
+      alert("Invalid role selected!");
+    }
+
+    // reset fields
     setName("");
     setEmail("");
     setPassword("");
@@ -57,9 +50,8 @@ const Login = ({ onAuthSuccess }) => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md">
-        {/* Toggle Tabs with sliding bar */}
+        {/* Tabs */}
         <div className="relative mb-8 bg-gray-200 rounded-xl p-1">
-          {/* sliding bar */}
           <div
             className="absolute top-1 left-0 h-[calc(100%-0.5rem)] bg-purple-600 rounded-xl transition-all duration-300 ease-in-out"
             style={indicatorStyle}
@@ -89,13 +81,11 @@ const Login = ({ onAuthSuccess }) => {
         </h2>
 
         <form onSubmit={handleSubmit}>
-          {/* Role selector shown in BOTH flows now */}
           <RoleSelector
             selectedRole={selectedRole}
             setSelectedRole={setSelectedRole}
           />
 
-          {/* Name field only when registering */}
           {!isLogin && (
             <InputField
               icon={IconUser}
