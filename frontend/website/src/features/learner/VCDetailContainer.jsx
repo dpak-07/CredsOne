@@ -1,31 +1,33 @@
-// VCDetailContainer.jsx (container + modal)
+// src/features/learner/VCDetailContainer.jsx
 import React, { useEffect, useState } from "react";
 import Modal from "../../components-ui/Modal";
-import { getVC, downloadVC, exportToDigilocker } from "../../services/api";
 import TrustBadge from "../../components-ui/TrustBadge";
+import { getVC, downloadVC, exportToDigilocker } from "../../services/api";
 
 /**
  * VCDetailContainer
- * - vcId: string
- * - onClose: fn
- * - cache: optional cache hook object with getVC(id) and setVC(vc)
+ * Props:
+ *  - vcId: string
+ *  - onClose: function
+ *  - cache: optional cache object with getVC(id) and setVC(id, vc)
  */
 export default function VCDetailContainer({ vcId, onClose, cache }) {
   const [vc, setVc] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [downloadting, setDownloading] = useState(false);
-  const [error, setError] = useState(null);
+  const [downloading, setDownloading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState(null);
   const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     let mounted = true;
+
     async function fetchVC() {
       setLoading(true);
       setError(null);
 
       try {
-        // try cache first
+        // try cache first (if available)
         const cached = cache?.getVC ? await cache.getVC(vcId) : null;
         if (cached) {
           if (mounted) setVc(cached);
@@ -33,12 +35,10 @@ export default function VCDetailContainer({ vcId, onClose, cache }) {
           return;
         }
 
-        const data = await getVC(vcId);
-        // expected shape: { vc: {...} } or the vc object directly
-        const fetched = data?.vc ?? data;
+        const res = await getVC(vcId);
+        const fetched = res?.vc ?? res; // handle either shape
         if (mounted) setVc(fetched);
 
-        // store in cache if available
         if (cache?.setVC) cache.setVC(vcId, fetched);
       } catch (err) {
         console.error("getVC error", err);
@@ -48,21 +48,23 @@ export default function VCDetailContainer({ vcId, onClose, cache }) {
       }
     }
 
-    fetchVC();
-    return () => { mounted = false; };
-  }, [vcId]);
+    if (vcId) fetchVC();
+    return () => {
+      mounted = false;
+    };
+  }, [vcId, cache]);
 
   async function handleDownload() {
     if (!vcId) return;
     setDownloading(true);
     try {
-      // backend returns a short-lived signed URL or file blob
-      const res = await downloadVC(vcId); // adjust service as implemented
-      // if API returns { url }, redirect to url. If returns blob, download it.
+      const res = await downloadVC(vcId);
+
+      // If backend returns { url }
       if (res?.url) {
         window.open(res.url, "_blank");
       } else if (res?.data) {
-        // assuming blob data — create download link
+        // if returns blob data
         const blob = new Blob([res.data]);
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -85,9 +87,9 @@ export default function VCDetailContainer({ vcId, onClose, cache }) {
   }
 
   async function handleExport() {
+    if (!vcId) return;
     setExporting(true);
     try {
-      // simulate interoperability export (Digilocker mock)
       const res = await exportToDigilocker(vcId);
       setNotification(res?.message || "Export requested");
     } catch (err) {
@@ -99,7 +101,8 @@ export default function VCDetailContainer({ vcId, onClose, cache }) {
     }
   }
 
-  if (!vc && loading) {
+  // Render loading state
+  if (loading) {
     return (
       <Modal isOpen={true} onClose={onClose} title="Credential details">
         <div>Loading…</div>
@@ -107,6 +110,7 @@ export default function VCDetailContainer({ vcId, onClose, cache }) {
     );
   }
 
+  // Render error state
   if (error) {
     return (
       <Modal isOpen={true} onClose={onClose} title="Credential details">
@@ -123,31 +127,69 @@ export default function VCDetailContainer({ vcId, onClose, cache }) {
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-xl font-semibold">{vc?.credentialSubject?.title || vc?.title || "Credential"}</h3>
-              <p className="text-sm text-gray-600">Issuer: {vc?.issuer?.name || vc?.issuer || vc?.issuerDid}</p>
-              <p className="text-sm text-gray-500">Issued: {vc?.issuanceDate ? new Date(vc.issuanceDate).toLocaleString() : vc?.issuedOn}</p>
+              <h3 className="text-xl font-semibold">
+                {vc?.credentialSubject?.title || vc?.title || "Credential"}
+              </h3>
+              <p className="text-sm text-gray-600">
+                Issuer: {vc?.issuer?.name || vc?.issuer || vc?.issuerDid || "Unknown"}
+              </p>
+              <p className="text-sm text-gray-500">
+                Issued:{" "}
+                {vc?.issuanceDate
+                  ? new Date(vc.issuanceDate).toLocaleString()
+                  : vc?.issuedOn || "—"}
+              </p>
             </div>
+
             <div className="flex items-center gap-2">
               <TrustBadge level={vc?.trust || vc?.badge || vc?.status} />
             </div>
           </div>
 
-          {/* Evidence and attestation */}
           <div className="bg-gray-50 p-3 rounded border">
             <h4 className="text-sm font-medium mb-2">Evidence</h4>
-            <pre className="text-xs max-h-40 overflow-auto p-2 bg-white rounded border">{JSON.stringify(vc?.evidence ?? vc?.credentialSubject?.evidence ?? {}, null, 2)}</pre>
+            <pre className="text-xs max-h-40 overflow-auto p-2 bg-white rounded border">
+              {JSON.stringify(vc?.evidence ?? vc?.credentialSubject?.evidence ?? {}, null, 2)}
+            </pre>
           </div>
 
-          {/* Full JSON-LD */}
           <div>
             <h4 className="text-sm font-medium mb-2">Signed VC (JSON-LD)</h4>
-            <pre className="text-xs max-h-56 overflow-auto p-3 bg-gray-800 text-white rounded">{JSON.stringify(vc, null, 2)}</pre>
+            <pre className="text-xs max-h-56 overflow-auto p-3 bg-gray-800 text-white rounded">
+              {JSON.stringify(vc, null, 2)}
+            </pre>
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3">
             <button
               onClick={handleDownload}
               disabled={downloading}
               className="px-3 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
             >
+              {downloading ? "Downloading…" : "Download"}
+            </button>
+
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="px-3 py-2 border rounded"
+            >
+              {exporting ? "Exporting…" : "Export (Digilocker)"}
+            </button>
+
+            <a
+              href={`https://credsone.app/verify?vcId=${encodeURIComponent(vcId)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-2 border rounded"
+            >
+              Open Verify Link
+            </a>
+          </div>
+
+          {notification && <div className="text-sm text-green-600">{notification}</div>}
+        </div>
+      )}
+    </Modal>
+  );
+}
