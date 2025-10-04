@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "priya": "vite --port 3000",
+    "deepak": "vite --port 3000",
+    "only buns": "vite --port 3000"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
