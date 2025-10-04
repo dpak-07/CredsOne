@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import { IconUser, IconBriefcase, IconSchool } from "./icons";
+import { IconUser, IconBriefcase, IconSchool } from "../components/icons";
 
 const RoleSelector = ({ selectedRole, setSelectedRole }) => {
   const containerRef = useRef(null);

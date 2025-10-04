@@ -1,5 +1,5 @@
 import React from "react";
-import { IconLogIn, IconUserPlus, IconUser, IconMail, IconLock, IconBriefcase, IconSchool } from "./icons.jsx";
+import { IconLogIn, IconUserPlus, IconUser, IconMail, IconLock, IconBriefcase, IconSchool } from "../components-ui/icons.jsx";
 
 const Header = ({ onNavigateToLogin, onNavigateToRegister }) => (
   <header className="bg-white shadow-md">

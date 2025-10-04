@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import LandingPage from "./components/LandingPage";
-import Login from "./components/Login";
+import LandingPage from "./features/LandingPage";
+import Login from "./features/login";
 import LearnerDashboard from "./components/LearnerDashboard";
 import EmployerDashboard from "./components/EmployerDashboard";
 import InstitutionDashboard from "./components/InstitutionDashboard";
