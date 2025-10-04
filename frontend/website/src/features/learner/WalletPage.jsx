@@ -1,8 +1,8 @@
 // src/features/learner/WalletPage.jsx
 import React, { useEffect, useState, useMemo } from "react";
-import api from "../../../services/api"; // your axios wrapper
+import api from "../../services/api"; // your axios wrapper
 import CredentialList from "./components/CredentialList";
-import VCDetailContainer from "../VCDetailContainer";
+import VCDetailContainer from "./VCDetailContainer";
 
 /**
  * WalletPage

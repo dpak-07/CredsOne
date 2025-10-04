@@ -1,4 +1,3 @@
-// src/features/institution/components/OCRPreview.jsx
 import React from "react";
 import InputField from "../../../components-ui/InputField";
 
