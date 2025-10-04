@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import useAuth from "./hooks/useAuth";
 
 // Core
 import LandingPage from "./features/LandingPage";
@@ -7,7 +8,7 @@ import Login from "./features/login";
 
 // Learner
 import WalletPage from "./features/learner/WalletPage";
-import VCDetailContainer from "./features/learner/VCDetailContainer";
+import VCDetailWrapper from "./features/learner/VCDetailwrapper";
 
 // Employer
 import VerifierPage from "./features/employer/VerifierPage";
@@ -16,18 +17,11 @@ import VerifierPage from "./features/employer/VerifierPage";
 import IssuerPage from "./features/institution/IssuerPage";
 
 const App = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState(null);
+  const { user, logout } = useAuth();
+  const isLoggedIn = !!user;
+  const userRole = user?.role;
 
-  const handleLoginSuccess = (name, role) => {
-    setIsLoggedIn(true);
-    setUserRole(role);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUserRole(null);
-  };
+  const handleLoginSuccess = () => {}; // handled via context now
 
   return (
     <Router>
@@ -46,17 +40,17 @@ const App = () => {
         {/* Learner routes */}
         <Route
           path="/dashboard/learner"
-          element={
-            isLoggedIn && userRole === "Learner"
-              ? <WalletPage onLogout={handleLogout} />
-              : <Navigate to="/login" />
-          }
+          // element={
+          //   isLoggedIn && userRole === "Learner"
+          //     ? <WalletPage onLogout={logout} />
+          //     : <Navigate to="/login" />
+          // }
         />
         <Route
           path="/learner/vc/:id"
           element={
             isLoggedIn && userRole === "Learner"
-              ? <VCDetailContainer />
+              ? <VCDetailWrapper />
               : <Navigate to="/login" />
           }
         />
@@ -66,7 +60,7 @@ const App = () => {
           path="/dashboard/employer"
           element={
             isLoggedIn && userRole === "Employer"
-              ? <VerifierPage onLogout={handleLogout} />
+              ? <VerifierPage onLogout={logout} />
               : <Navigate to="/login" />
           }
         />
@@ -76,7 +70,7 @@ const App = () => {
           path="/dashboard/institution"
           element={
             isLoggedIn && userRole === "Institution"
-              ? <IssuerPage onLogout={handleLogout} />
+              ? <IssuerPage onLogout={logout} />
               : <Navigate to="/login" />
           }
         />
