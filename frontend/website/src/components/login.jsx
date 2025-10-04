@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import RoleSelector from "./RoleSelector";
 import { IconUser, IconMail, IconLock } from "./icons";
 
 const InputField = ({ icon: Icon, type, placeholder, value, onChange }) => (
   <div className="relative mb-4">
-    <Icon size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+    <Icon
+      size={20}
+      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+    />
     <input
       type={type}
       placeholder={placeholder}
@@ -23,10 +26,28 @@ const Login = ({ onAuthSuccess }) => {
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState("Learner");
 
+  // sliding bar logic for tabs
+  const tabsRef = useRef(null);
+  const [indicatorStyle, setIndicatorStyle] = useState({});
+
+  useEffect(() => {
+    if (!tabsRef.current) return;
+    const buttons = tabsRef.current.querySelectorAll("button");
+    const index = isLogin ? 0 : 1;
+    if (buttons[index]) {
+      const btn = buttons[index];
+      setIndicatorStyle({
+        width: btn.offsetWidth + "px",
+        left: btn.offsetLeft + "px",
+      });
+    }
+  }, [isLogin]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    const userName = isLogin ? (name || "Test Learner") : name;
-    const role = isLogin ? "Learner" : selectedRole;
+    const userName = isLogin ? name || "Test User" : name;
+    // always take selectedRole now
+    const role = selectedRole;
     onAuthSuccess(userName, role);
     setName("");
     setEmail("");
@@ -36,22 +57,31 @@ const Login = ({ onAuthSuccess }) => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md">
-        {/* Toggle Tabs */}
-        <div className="flex mb-8 bg-gray-200 rounded-xl p-1">
-          <button
-            onClick={() => setIsLogin(true)}
-            className={`flex-1 py-3 text-lg font-bold rounded-xl transition-all duration-300 
-              ${isLogin ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-300'}`}
-          >
-            Log In
-          </button>
-          <button
-            onClick={() => setIsLogin(false)}
-            className={`flex-1 py-3 text-lg font-bold rounded-xl transition-all duration-300 
-              ${!isLogin ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-300'}`}
-          >
-            Register
-          </button>
+        {/* Toggle Tabs with sliding bar */}
+        <div className="relative mb-8 bg-gray-200 rounded-xl p-1">
+          {/* sliding bar */}
+          <div
+            className="absolute top-1 left-0 h-[calc(100%-0.5rem)] bg-purple-600 rounded-xl transition-all duration-300 ease-in-out"
+            style={indicatorStyle}
+          />
+          <div ref={tabsRef} className="relative flex z-10">
+            <button
+              onClick={() => setIsLogin(true)}
+              className={`flex-1 py-3 text-lg font-bold rounded-xl transition-all duration-300 ${
+                isLogin ? "text-white" : "text-gray-600"
+              }`}
+            >
+              Log In
+            </button>
+            <button
+              onClick={() => setIsLogin(false)}
+              className={`flex-1 py-3 text-lg font-bold rounded-xl transition-all duration-300 ${
+                !isLogin ? "text-white" : "text-gray-600"
+              }`}
+            >
+              Register
+            </button>
+          </div>
         </div>
 
         <h2 className="text-3xl font-extrabold text-gray-900 mb-6 text-center">
@@ -59,22 +89,21 @@ const Login = ({ onAuthSuccess }) => {
         </h2>
 
         <form onSubmit={handleSubmit}>
-          {!isLogin && (
-            <>
-              <InputField
-                icon={IconUser}
-                type="text"
-                placeholder="Full Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+          {/* Role selector shown in BOTH flows now */}
+          <RoleSelector
+            selectedRole={selectedRole}
+            setSelectedRole={setSelectedRole}
+          />
 
-              {/* Role Selector with updated styling */}
-              <RoleSelector
-                selectedRole={selectedRole}
-                setSelectedRole={setSelectedRole}
-              />
-            </>
+          {/* Name field only when registering */}
+          {!isLogin && (
+            <InputField
+              icon={IconUser}
+              type="text"
+              placeholder="Full Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           )}
 
           <InputField
@@ -101,7 +130,10 @@ const Login = ({ onAuthSuccess }) => {
 
           {isLogin && (
             <p className="mt-4 text-center text-sm text-gray-600">
-              <a href="#" className="font-medium text-purple-600 hover:text-purple-500">
+              <a
+                href="#"
+                className="font-medium text-purple-600 hover:text-purple-500"
+              >
                 Forgot password?
               </a>
             </p>
