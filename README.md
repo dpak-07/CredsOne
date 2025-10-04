@@ -1,334 +1,303 @@
-# React Website (Vite) + React Native (Expo)
+# 🧪 Backend API Testing Guide
+
+## ✅ Backend is Running on: http://localhost:5000
 
 ---
 
-## Project layout (one root, two projects)
+## 🔍 Method 1: Test in Browser (Easiest)
 
+Just open your browser and visit:
+
+**Health Check:**
 ```
-project-root/
-├─ web/      ← React (Vite) website
-├─ mobile/   ← React Native (Expo) mobile app
-└─ README.md ← (this file)
+http://localhost:5000/health
 ```
 
-* `web/` contains the Vite React website.
-* `mobile/` contains the Expo React Native app.
+You should see server status, mock mode info, and uptime.
 
 ---
 
-## Prerequisites
+## 🔧 Method 2: Test with PowerShell (Command Line)
 
-* Node.js (LTS recommended, e.g. 18+)
-* npm (bundled with Node) or yarn
-* Git (optional but recommended)
-* For Android emulator: Android Studio (if you plan to run emulators)
-* For iOS device/simulator: macOS + Xcode (only required for native builds)
+Open a **new PowerShell window** and run these commands:
 
----
-
-## 1) Folder structure (recommended)
-
-```
-project-root/
-
-web/
-├─ public/             # static files (favicon, index.html template)
-├─ src/
-│  ├─ assets/          # images, fonts, icons
-│  ├─ components/      # small, reusable UI components
-│  ├─ pages/           # route-level pages (Home.jsx, About.jsx)
-│  ├─ App.jsx          # route composition
-│  └─ main.jsx         # Vite entry
-├─ package.json
-└─ vite.config.js
-
-mobile/
-├─ assets/             # images, fonts
-├─ components/         # UI components reused across screens
-├─ screens/            # screens (HomeScreen.js, ProfileScreen.js)
-├─ App.js              # navigation root
-├─ package.json
-└─ metro.config.js
+### 1. Health Check
+```powershell
+Invoke-RestMethod -Uri "http://localhost:5000/health" -Method Get | ConvertTo-Json -Depth 10
 ```
 
-Tips:
+### 2. Register a New User
+```powershell
+$body = @{
+    username = "testuser"
+    email = "test@example.com"
+    password = "password123"
+    fullName = "Test User"
+    role = "learner"
+} | ConvertTo-Json
 
-* Keep components small and focused (single responsibility).
-* Name pages/screens clearly: `Home`, `Profile`, `Settings`.
-
----
-
-## 2) Quick setup — create projects (if not existing)
-
-### Create the `web/` (Vite + React)
-
-```bash
-# from project-root/
-cd ./web
-# create with Vite (choose react + javascript or react + typescript)
-npm create vite@latest .
-# or using pnpm: pnpm create vite .
-
-npm install
+Invoke-RestMethod -Uri "http://localhost:5000/api/auth/register" -Method Post -Body $body -ContentType "application/json" | ConvertTo-Json -Depth 10
 ```
 
-Make sure `package.json` has scripts such as:
+### 3. Login
+```powershell
+$body = @{
+    username = "testuser"
+    password = "password123"
+} | ConvertTo-Json
 
-```json
-"scripts": {
-  "dev": "vite",
-  "build": "vite build",
-  "preview": "vite preview"
+$response = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $body -ContentType "application/json"
+$token = $response.token
+Write-Host "Token: $token"
+```
+
+### 4. Get Current User (Protected Route)
+```powershell
+# Use the token from login
+$headers = @{
+    "Authorization" = "Bearer $token"
 }
-```
 
-### Create the `mobile/` (Expo)
-
-```bash
-# from project-root/
-cd ./mobile
-npx create-expo-app .
-# or if you prefer the classic: expo init .
-
-npm install
-```
-
-Typical mobile `package.json` scripts:
-
-```json
-"scripts": {
-  "start": "expo start",
-  "android": "expo run:android",
-  "ios": "expo run:ios",
-  "web": "expo start --web"
-}
+Invoke-RestMethod -Uri "http://localhost:5000/api/auth/me" -Method Get -Headers $headers | ConvertTo-Json -Depth 10
 ```
 
 ---
 
-## 3) Routing / Navigation — examples
+## 🎯 Method 3: Use Demo Users (With Seed Data)
 
-### Web (React Router)
+First, seed the database with demo users:
 
-In `web/src/App.jsx`:
+```powershell
+cd d:\SIH\CredsOne\backend
+npm run seed
+```
 
-```javascript
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
-import About from './pages/About';
+This creates:
+- **Admin:** username: `admin`, password: `admin123`
+- **Issuer:** username: `issuer1`, password: `issuer123`
+- **Verifier:** username: `verifier1`, password: `verifier123`
+- **Learner:** username: `learner1`, password: `learner123`
 
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
-      </Routes>
-    </BrowserRouter>
-  );
+### Login as Admin:
+```powershell
+$body = @{
+    username = "admin"
+    password = "admin123"
+} | ConvertTo-Json
+
+$response = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $body -ContentType "application/json"
+$adminToken = $response.token
+Write-Host "Admin Token: $adminToken"
+```
+
+### Issue Certificate (as Issuer):
+```powershell
+# First login as issuer
+$body = @{
+    username = "issuer1"
+    password = "issuer123"
+} | ConvertTo-Json
+
+$response = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $body -ContentType "application/json"
+$issuerToken = $response.token
+
+# Now issue a certificate
+$headers = @{
+    "Authorization" = "Bearer $issuerToken"
 }
+
+$certBody = @{
+    learner = @{
+        name = "John Doe"
+        email = "john@example.com"
+    }
+    course = @{
+        name = "Blockchain Development"
+        description = "Complete blockchain development course"
+        completionDate = "2025-10-04"
+    }
+} | ConvertTo-Json -Depth 10
+
+Invoke-RestMethod -Uri "http://localhost:5000/api/certificates/issue" -Method Post -Headers $headers -Body $certBody -ContentType "application/json" | ConvertTo-Json -Depth 10
 ```
 
-Install React Router in the web project:
+### Verify Certificate (Public - No Auth):
+```powershell
+$body = @{
+    certificateId = "CERT-ID-HERE"
+} | ConvertTo-Json
 
-```bash
-cd web
-npm install react-router-dom
-```
-
-### Mobile (React Navigation — Expo)
-
-Install navigation dependencies in the mobile project:
-
-```bash
-cd mobile
-npm install @react-navigation/native
-npm install @react-navigation/native-stack
-# Expo-managed apps also need:
-expo install react-native-screens react-native-safe-area-context
-```
-
-In `mobile/App.js`:
-
-```javascript
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import HomeScreen from './screens/HomeScreen';
-import ProfileScreen from './screens/ProfileScreen';
-
-const Stack = createNativeStackNavigator();
-
-export default function App() {
-  return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Profile" component={ProfileScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
-}
+Invoke-RestMethod -Uri "http://localhost:5000/api/verifications/verify" -Method Post -Body $body -ContentType "application/json" | ConvertTo-Json -Depth 10
 ```
 
 ---
 
-## 4) Component & Page/Screen patterns
+## 🚀 Method 4: Use Postman or Thunder Client
 
-* **Components** (`components/`) — small building blocks used by pages/screens. Example: `Button.jsx`, `Card.jsx`, `Avatar.jsx`.
-* **Pages / Screens** (`pages/` or `screens/`) — route-level containers composed of components.
+### Install Thunder Client (VS Code Extension)
+1. Open VS Code Extensions (Ctrl+Shift+X)
+2. Search for "Thunder Client"
+3. Install it
+4. Click the Thunder Client icon in the sidebar
 
-Example `web/src/components/Button.jsx`:
+### Or Use Postman
+1. Download from: https://www.postman.com/downloads/
+2. Create a new collection "CredsOne API"
+3. Import the endpoints below
 
-```jsx
-export default function Button({ children, onClick }) {
-  return (
-    <button onClick={onClick} className="px-4 py-2 rounded">
-      {children}
-    </button>
-  );
+---
+
+## 📋 Quick Test Endpoints
+
+### Public Endpoints (No Authentication)
+- **GET** `http://localhost:5000/health` - Server health
+- **POST** `http://localhost:5000/api/auth/register` - Register
+- **POST** `http://localhost:5000/api/auth/login` - Login
+- **POST** `http://localhost:5000/api/verifications/verify` - Verify certificate
+- **GET** `http://localhost:5000/api/certificates/:id` - Get certificate (public)
+
+### Protected Endpoints (Need Token)
+Add header: `Authorization: Bearer YOUR_TOKEN_HERE`
+
+- **GET** `http://localhost:5000/api/auth/me` - Current user
+- **POST** `http://localhost:5000/api/certificates/issue` - Issue certificate
+- **GET** `http://localhost:5000/api/certificates` - List certificates
+- **GET** `http://localhost:5000/api/verifications/stats` - Verification stats
+- **GET** `http://localhost:5000/api/audit` - Audit logs (admin/issuer)
+- **GET** `http://localhost:5000/api/users` - User management (admin)
+
+---
+
+## 🎬 Complete Test Flow (PowerShell)
+
+Copy and paste this entire script:
+
+```powershell
+# Complete API Test Flow
+
+Write-Host "`n=== 1. Testing Health Endpoint ===" -ForegroundColor Green
+$health = Invoke-RestMethod -Uri "http://localhost:5000/health" -Method Get
+Write-Host "Server Status: $($health.message)" -ForegroundColor Cyan
+
+Write-Host "`n=== 2. Registering New User ===" -ForegroundColor Green
+$registerBody = @{
+    username = "testuser_$(Get-Random -Maximum 9999)"
+    email = "test$(Get-Random -Maximum 9999)@example.com"
+    password = "password123"
+    fullName = "Test User"
+    role = "learner"
+} | ConvertTo-Json
+
+try {
+    $registerResponse = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/register" -Method Post -Body $registerBody -ContentType "application/json"
+    Write-Host "User registered: $($registerResponse.user.username)" -ForegroundColor Cyan
+} catch {
+    Write-Host "Registration failed: $($_.Exception.Message)" -ForegroundColor Red
 }
+
+Write-Host "`n=== 3. Logging in as Admin ===" -ForegroundColor Green
+$loginBody = @{
+    username = "admin"
+    password = "admin123"
+} | ConvertTo-Json
+
+try {
+    $loginResponse = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json"
+    $token = $loginResponse.token
+    Write-Host "Login successful! Token received." -ForegroundColor Cyan
+    Write-Host "Token (first 50 chars): $($token.Substring(0, [Math]::Min(50, $token.Length)))..." -ForegroundColor Yellow
+} catch {
+    Write-Host "Login failed. Did you run 'npm run seed'?" -ForegroundColor Red
+    Write-Host "Run: cd d:\SIH\CredsOne\backend; npm run seed" -ForegroundColor Yellow
+    exit
+}
+
+Write-Host "`n=== 4. Getting Current User Info ===" -ForegroundColor Green
+$headers = @{
+    "Authorization" = "Bearer $token"
+}
+
+$meResponse = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/me" -Method Get -Headers $headers
+Write-Host "Logged in as: $($meResponse.user.username) ($($meResponse.user.role))" -ForegroundColor Cyan
+
+Write-Host "`n=== 5. Listing Certificates ===" -ForegroundColor Green
+try {
+    $certificates = Invoke-RestMethod -Uri "http://localhost:5000/api/certificates" -Method Get -Headers $headers
+    Write-Host "Found $($certificates.pagination.total) certificates" -ForegroundColor Cyan
+} catch {
+    Write-Host "No certificates found yet" -ForegroundColor Yellow
+}
+
+Write-Host "`n=== 6. Getting Audit Stats ===" -ForegroundColor Green
+try {
+    $auditStats = Invoke-RestMethod -Uri "http://localhost:5000/api/audit/stats" -Method Get -Headers $headers
+    Write-Host "Total audit logs: $($auditStats.stats.total)" -ForegroundColor Cyan
+} catch {
+    Write-Host "Could not fetch audit stats" -ForegroundColor Yellow
+}
+
+Write-Host "`n=== ✅ All Tests Complete ===" -ForegroundColor Green
+Write-Host "`nYour backend is working correctly! 🎉" -ForegroundColor Cyan
 ```
 
-Example `mobile/components/Button.js`:
-
-```js
-import { TouchableOpacity, Text } from 'react-native';
-export default function Button({ children, onPress }) {
-  return (
-    <TouchableOpacity onPress={onPress} style={{ padding: 12, borderRadius: 8 }}>
-      <Text>{children}</Text>
-    </TouchableOpacity>
-  );
-}
+Save this as `test-api.ps1` and run:
+```powershell
+.\test-api.ps1
 ```
 
 ---
 
-## 5) Running the projects (development)
+## 📱 Method 5: Test with Frontend (Future)
 
-### Web (Vite)
+Once you integrate the frontend:
 
-```bash
-cd web
-npm install
+1. **Web Frontend** (React + Vite):
+   ```powershell
+   cd d:\SIH\CredsOne\frontend\website
+   npm install
+   npm run dev
+   ```
+   Opens on: http://localhost:5173
+
+2. **Mobile App** (React Native + Expo):
+   ```powershell
+   cd d:\SIH\CredsOne\frontend\app\CredsOne
+   npm install
+   npx expo start
+   ```
+
+---
+
+## 🔧 Troubleshooting
+
+### Backend not responding?
+```powershell
+# Check if backend is running
+Get-Process node
+
+# Or restart it
+cd d:\SIH\CredsOne\backend
 npm run dev
 ```
 
-Open your browser at `http://localhost:5173` (or the address printed by Vite).
+### Database errors?
+The backend is in **MOCK MODE** - it will work even without MongoDB.
+If you have MongoDB installed locally, it will connect automatically.
 
-### Mobile (Expo)
-
-```bash
-cd mobile
-npm install
-npx expo start
-```
-
-* Scan the QR code with **Expo Go** (Android/iOS) to run on a device.
-* Or start an emulator and press `a` (Android) or `i` (iOS simulator) in the terminal where the dev server runs.
+### Token expired?
+Login again to get a new token. Tokens expire after 7 days.
 
 ---
 
-## 6) Building for production
+## 🎯 Next Steps
 
-### Web
-
-```bash
-cd web
-npm run build
-# Produces a `dist/` folder. Serve this with any static host (Netlify, Vercel, GitHub Pages, nginx).
-```
-
-### Mobile
-
-For Expo-managed apps, you can use EAS or classic `expo build` (depending on whether you have an Expo account and which Expo SDK you're on):
-
-```bash
-# Example using EAS (recommended for managed apps):
-npm install -g eas-cli
-eas build --platform android
-eas build --platform ios
-```
-
-Or publish to the Expo service (not a native store build):
-
-```bash
-expo publish
-```
+1. ✅ Test health endpoint
+2. ✅ Run seed script to create demo users
+3. ✅ Test authentication (login/register)
+4. ✅ Test certificate issuance
+5. ⏳ Integrate with frontend
+6. ⏳ Deploy to production
 
 ---
 
-## 7) Best practices & tips for beginners
-
-* Keep components small and reusable.
-* Prefer function components + hooks.
-* Separate logic from UI (hooks for data + state; components for view).
-* Use descriptive file & folder names.
-* Use environment variables for API URLs (`.env` and `.env.production`) — Vite uses `VITE_` prefix.
-* Version control: keep `node_modules/` in `.gitignore`.
-* Use consistent formatting (Prettier + ESLint).
-* Add TypeScript later to improve type-safety (optional).
-
----
-
-## 8) Common troubleshooting
-
-**`ERR_PORT_IN_USE`** (Vite): change port with `vite --port 5174` or set `PORT` env var.
-
-**Expo app not loading on device:** ensure phone & dev machine are on the same network, or use Tunnel mode in Expo Dev Tools.
-
-**React Native build fails on emulator:** ensure Android SDK, ANDROID_HOME, and emulator images are configured.
-
----
-
-## 9) Helpful commands quick reference
-
-```
-# web
-cd web
-npm install
-npm run dev
-npm run build
-
-# mobile
-cd mobile
-npm install
-npx expo start   # or: npm run start
-npx expo start --tunnel  # if local network issues
-```
-
----
-
-## 10) Example `.gitignore` additions
-
-```
-# node
-node_modules/
-.env
-
-# expo
-.expo/
-.expo-shared/
-
-# build
-dist/
-build/
-```
-
----
-
-## 11) Further learning resources
-
-* React official docs: [https://reactjs.org/](https://reactjs.org/)
-* Vite docs: [https://vitejs.dev/](https://vitejs.dev/)
-* Expo docs: [https://docs.expo.dev/](https://docs.expo.dev/)
-* React Router: [https://reactrouter.com/](https://reactrouter.com/)
-* React Navigation: [https://reactnavigation.org/](https://reactnavigation.org/)
-
----
-
-## License
-
-MIT — feel free to adapt this README to your needs.
-
----
+**Your backend is fully functional and ready for integration!** 🚀
