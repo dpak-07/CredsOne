@@ -6,7 +6,7 @@ const Certificate = require('../models/Certificate');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const { generateCertificateHash, generateBatchHashes } = require('../utils/hashUtils');
-const { issueCertificateOnChain, batchIssueCertificates } = require('../services/blockchainService');
+const { issueCertificateOnChain, batchIssueCertificates: batchIssueCertsOnChain } = require('../services/blockchainService');
 const { generateCertificateQR } = require('../services/qrService');
 const { extractCertificateData } = require('../services/ocrService');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -150,7 +150,7 @@ const batchIssueCertificates = asyncHandler(async (req, res) => {
   );
 
   // Batch issue on blockchain
-  const blockchainResult = await batchIssueCertificates(certHashes);
+  const blockchainResult = await batchIssueCertsOnChain(certHashes);
 
   // Create certificates in database
   const createdCertificates = [];
