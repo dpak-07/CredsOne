@@ -1,75 +1,64 @@
-import React from "react";
+﻿import React from "react";
 import TrustBadge from "../../../components-ui/TrustBadge";
-import { IconCheck, IconX, IconClock } from "../../../components-ui/icons";
 
-export default function VerificationResultCard({ result }) {
+export default function VerificationResultCard({ result, onViewDetails }) {
   if (!result) return null;
 
-  const getStatusIcon = () => {
-    switch (result.status) {
-      case "valid":
-        return <IconCheck size={32} className="text-green-600" />;
-      case "invalid":
-        return <IconX size={32} className="text-red-600" />;
-      default:
-        return <IconClock size={32} className="text-yellow-600" />;
-    }
-  };
-
-  const getStatusText = () => {
-    switch (result.status) {
-      case "valid":
-        return "Credential Verified";
-      case "invalid":
-        return "Verification Failed";
-      default:
-        return "Manual Review Required";
-    }
-  };
+  const isValid = result.status === "valid";
+  const isPending = result.status === "pending";
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 border-2 border-gray-200">
+    <div className={`bg-white rounded-lg shadow-lg p-6 border-2 ${isValid ? "border-green-500" : isPending ? "border-amber-500" : "border-red-500"}`}>
       <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          {getStatusIcon()}
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">{getStatusText()}</h3>
-            <p className="text-sm text-gray-500">Certificate ID: {result.credential?.id}</p>
-          </div>
-        </div>
-        <TrustBadge badge={result.badge || "blue"} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t">
         <div>
-          <p className="text-xs text-gray-500">Issuer</p>
-          <p className="font-medium text-gray-900">{result.credential?.issuer || "N/A"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500">Learner</p>
-          <p className="font-medium text-gray-900">{result.credential?.learnerName || "N/A"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500">Course</p>
-          <p className="font-medium text-gray-900">{result.credential?.courseName || "N/A"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500">Issue Date</p>
-          <p className="font-medium text-gray-900">
-            {result.credential?.issueDate ? new Date(result.credential.issueDate).toLocaleDateString() : "N/A"}
+          <h2 className={`text-2xl font-bold ${isValid ? "text-green-700" : isPending ? "text-amber-700" : "text-red-700"}`}>
+            {isValid ? " VALID CREDENTIAL" : isPending ? " PENDING REVIEW" : " INVALID CREDENTIAL"}
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Verified: {new Date(result.verifiedAt).toLocaleString()} | Method: {result.method}
           </p>
         </div>
+        <div className="text-right">
+          <TrustBadge level={result.badge || "blue"} />
+          <p className="text-sm text-gray-600 mt-1">Trust Score: {result.trustScore}%</p>
+        </div>
       </div>
 
-      {result.credential?.blockchainStatus && (
-        <div className="mt-4 pt-4 border-t">
-          <p className="text-xs text-gray-500">Blockchain Status</p>
-          <p className="text-sm font-medium text-gray-900">{result.credential.blockchainStatus}</p>
+      {result.credential && (
+        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+          <h3 className="font-semibold text-gray-900 mb-2">Credential Details:</h3>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div><span className="font-medium">Learner:</span> {result.credential.learnerName}</div>
+            <div><span className="font-medium">Credential:</span> {result.credential.courseName}</div>
+            <div><span className="font-medium">Issuer:</span> {result.credential.issuer}</div>
+            <div><span className="font-medium">Issue Date:</span> {result.credential.issueDate}</div>
+            {result.credential.status && (
+              <div><span className="font-medium">Status:</span> {result.credential.status}</div>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="mt-4 text-xs text-gray-400">
-        Verified at: {new Date(result.verifiedAt).toLocaleString()}
+      {result.blockchain && (
+        <div className="bg-blue-50 rounded-lg p-4 mb-4">
+          <h3 className="font-semibold text-gray-900 mb-2">Blockchain Verification:</h3>
+          <p className="text-sm"><span className="font-medium">Tx ID:</span> {result.blockchain.txId}</p>
+          <p className="text-sm"><span className="font-medium">Block:</span> {result.blockchain.block}</p>
+        </div>
+      )}
+
+      <div className="flex justify-end space-x-2">
+        <button
+          onClick={() => onViewDetails && onViewDetails(result)}
+          className="px-4 py-2 text-purple-600 hover:bg-purple-50 rounded-lg transition border border-purple-600"
+        >
+          View Full Details
+        </button>
+        {isValid && (
+          <button className="px-4 py-2 text-white bg-green-600 hover:bg-green-700 rounded-lg transition">
+            Accept & Record
+          </button>
+        )}
       </div>
     </div>
   );

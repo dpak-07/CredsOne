@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { IconSearch, IconX } from "../../../components-ui/icons";
 
 export default function SearchBar({ value, onChange, onClear, placeholder }) {
@@ -11,8 +11,8 @@ export default function SearchBar({ value, onChange, onClear, placeholder }) {
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder || "Search by hash, DID, or certificate ID..."}
-        className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+        placeholder={placeholder || "Search by hash, DID, learner name, or cert ID..."}
+        className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
       />
       {value && (
         <button

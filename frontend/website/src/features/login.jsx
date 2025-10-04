@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import useAuth from "../hooks/useAuth";
 import RoleSelector from "../components-ui/RoleSelector";
 import { IconUser, IconMail, IconLock } from "../components-ui/icons";
 
@@ -19,9 +21,11 @@ const InputField = ({ icon: Icon, type, placeholder, value, onChange }) => (
   </div>
 );
 
-const Login = ({ onAuthSuccess }) => {
+const Login = () => {
   console.log('Login component rendered');
   
+  const { login: authLogin } = useAuth();
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -45,41 +49,73 @@ const Login = ({ onAuthSuccess }) => {
     }
   }, [isLogin]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Hidden test credentials (not shown in UI)
     const testCredentials = {
-      '1@gmail.com': { password: '123123123', role: 'Employer', name: 'Test Employer' },
-      'learner@test.com': { password: 'test123', role: 'Learner', name: 'Test Learner' },
-      'employer@test.com': { password: 'test123', role: 'Employer', name: 'Test Employer 2' },
-      'institution@test.com': { password: 'test123', role: 'Institution', name: 'Test Institution' }
+      '1@gmail.com': { password: '123123123', role: 'Employer', name: 'Test Employer', did: 'did:example:employer1' },
+      'learner@test.com': { password: 'test123', role: 'Learner', name: 'Test Learner', did: 'did:example:learner1' },
+      'employer@test.com': { password: 'test123', role: 'Employer', name: 'Test Employer 2', did: 'did:example:employer2' },
+      'institution@test.com': { password: 'test123', role: 'Institution', name: 'Test Institution', did: 'did:example:institution1' }
     };
 
-    if (isLogin) {
-      // Check test credentials first
-      const testAccount = testCredentials[email];
-      if (testAccount && testAccount.password === password) {
-        // Valid test credential
-        onAuthSuccess(testAccount.name, testAccount.role);
-        setName("");
-        setEmail("");
-        setPassword("");
-        return;
+    try {
+      let userData;
+      
+      if (isLogin) {
+        // Check test credentials first
+        const testAccount = testCredentials[email];
+        if (testAccount && testAccount.password === password) {
+          // Valid test credential
+          userData = {
+            user: {
+              did: testAccount.did,
+              name: testAccount.name,
+              role: testAccount.role,
+              email: email
+            },
+            token: 'mock-jwt-token-' + Date.now()
+          };
+        } else {
+          // Mock login for any other email/password
+          userData = {
+            user: {
+              did: 'did:example:user' + Date.now(),
+              name: name || "Test User",
+              role: selectedRole,
+              email: email
+            },
+            token: 'mock-jwt-token-' + Date.now()
+          };
+        }
+      } else {
+        // Register flow
+        userData = {
+          user: {
+            did: 'did:example:user' + Date.now(),
+            name: name,
+            role: selectedRole,
+            email: email
+          },
+          token: 'mock-jwt-token-' + Date.now()
+        };
       }
-      // If not test credential, proceed with normal login
-      const userName = name || "Test User";
-      onAuthSuccess(userName, selectedRole);
-    } else {
-      // Register flow
-      const userName = name;
-      const role = selectedRole;
-      onAuthSuccess(userName, role);
+
+      // Call the auth context login
+      await authLogin(userData);
+      
+      // Navigate to appropriate dashboard
+      navigate(`/dashboard/${userData.user.role.toLowerCase()}`, { replace: true });
+      
+      // Clear form
+      setName("");
+      setEmail("");
+      setPassword("");
+    } catch (error) {
+      console.error('Login error:', error);
+      alert('Login failed. Please try again.');
     }
-    
-    setName("");
-    setEmail("");
-    setPassword("");
   };
 
   return (

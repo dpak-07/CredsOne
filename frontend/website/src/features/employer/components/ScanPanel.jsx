@@ -1,57 +1,53 @@
-import React, { useState, useRef, useEffect } from "react";
-import { IconCamera, IconX } from "../../../components-ui/icons";
+﻿import React, { useEffect } from "react";
+import Modal from "../../../components-ui/Modal";
+import { IconCamera } from "../../../components-ui/icons";
 
-export default function ScanPanel({ onScan, loading }) {
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanError, setScanError] = useState(null);
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-
+export default function ScanPanel({ isOpen, onClose, onDetect, scanning, error, startScan }) {
   useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
-
-  const startScanning = async () => {
-    try {
-      setScanError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-        setIsScanning(true);
-      }
-    } catch (error) {
-      setScanError("Camera access denied");
+    if (isOpen && !scanning) {
+      startScan(onDetect);
     }
-  };
-
-  const stopScanning = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    setIsScanning(false);
-  };
+  }, [isOpen]);
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-dashed border-purple-300 rounded-lg p-8">
-      {!isScanning ? (
-        <div className="text-center space-y-4">
-          <IconCamera size={48} className="text-purple-600 mx-auto" />
-          <h3 className="text-lg font-semibold">QR Code Scanner</h3>
-          <button onClick={startScanning} disabled={loading} className="px-6 py-3 bg-purple-600 text-white rounded-lg">Start Scanner</button>
-          {scanError && <p className="text-red-600 text-sm">{scanError}</p>}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <video ref={videoRef} autoPlay playsInline className="w-full rounded-lg" />
-          <button onClick={stopScanning} className="px-4 py-2 bg-red-600 text-white rounded-lg">Stop</button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        <span className="flex items-center">
+          <IconCamera className="mr-2" size={24} />
+          Scan Credential QR Code
+        </span>
+      }
+    >
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-800 text-sm">{error}</p>
         </div>
       )}
-    </div>
+      
+      <div className="bg-gray-100 rounded-lg p-4">
+        <div id="qr-reader" className="w-full"></div>
+      </div>
+      
+      <div className="mt-4 text-sm text-gray-600">
+        <h3 className="font-semibold mb-2">Instructions:</h3>
+        <ul className="list-disc list-inside space-y-1">
+          <li>Position the QR code in the center of the camera view</li>
+          <li>Ensure good lighting</li>
+          <li>Hold the device steady</li>
+          <li>The scan will complete automatically when detected</li>
+        </ul>
+      </div>
+      
+      <div className="mt-4 flex justify-end space-x-2">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+        >
+          Cancel
+        </button>
+      </div>
+    </Modal>
   );
 }

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { IconClock } from "../../../components-ui/icons";
 import TrustBadge from "../../../components-ui/TrustBadge";
 
@@ -8,6 +8,7 @@ export default function VerificationHistoryList({ verifications, onSelect }) {
       <div className="text-center py-12 text-gray-500">
         <IconClock size={48} className="mx-auto mb-4 text-gray-300" />
         <p>No verification history yet</p>
+        <p className="text-sm mt-2">Start verifying credentials to see them here</p>
       </div>
     );
   }
@@ -23,7 +24,7 @@ export default function VerificationHistoryList({ verifications, onSelect }) {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-2">
-                <TrustBadge badge={verification.badge || "blue"} size="sm" />
+                <TrustBadge level={verification.badge || "blue"} />
                 <span className="font-semibold text-gray-900">
                   {verification.credential?.learnerName || "N/A"}
                 </span>
@@ -33,19 +34,15 @@ export default function VerificationHistoryList({ verifications, onSelect }) {
                 Issuer: {verification.credential?.issuer || "N/A"}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                {new Date(verification.verifiedAt).toLocaleString()}
+                {new Date(verification.verifiedAt).toLocaleString()} | {verification.method}
               </p>
             </div>
             <div className="text-right">
-              <span
-                className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                  verification.status === "valid"
-                    ? "bg-green-100 text-green-800"
-                    : verification.status === "invalid"
-                    ? "bg-red-100 text-red-800"
-                    : "bg-yellow-100 text-yellow-800"
-                }`}
-              >
+              <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                verification.status === "valid" ? "bg-green-100 text-green-800" :
+                verification.status === "invalid" ? "bg-red-100 text-red-800" :
+                "bg-yellow-100 text-yellow-800"
+              }`}>
                 {verification.status}
               </span>
             </div>

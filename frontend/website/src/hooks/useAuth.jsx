@@ -20,8 +20,17 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  async function login(credentials) {
-    const data = await apiLogin(credentials); // backend returns { user, token }
+  async function login(dataOrCredentials) {
+    let data;
+    
+    // If already formatted with user and token, use directly
+    if (dataOrCredentials.user && dataOrCredentials.token) {
+      data = dataOrCredentials;
+    } else {
+      // Otherwise, call API
+      data = await apiLogin(dataOrCredentials);
+    }
+    
     setUser(data.user);
     setToken(data.token);
     sessionStorage.setItem("auth_user", JSON.stringify(data.user));
