@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import RoleSelector from "./RoleSelector";
-import { IconUser, IconMail, IconLock } from "./icons";
+import RoleSelector from "../components-ui/RoleSelector";
+import { IconUser, IconMail, IconLock } from "../components-ui/icons";
 
 const InputField = ({ icon: Icon, type, placeholder, value, onChange }) => (
   <div className="relative mb-4">
