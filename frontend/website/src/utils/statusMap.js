@@ -1,0 +1,1 @@
+﻿// badge status/colors map

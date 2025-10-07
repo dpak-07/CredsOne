@@ -1,0 +1,1 @@
+﻿// Wrapper for protected routes
