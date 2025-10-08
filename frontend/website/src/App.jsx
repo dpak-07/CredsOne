@@ -10,7 +10,7 @@ import Landing from "./pages/Landing";
 import VerifyPublic from "./pages/VerifyPublic";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import FAQ from "./pages/FAQ";
+//import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
 
 // 🎓 --- Learner Pages ---
