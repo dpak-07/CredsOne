@@ -1,15 +1,12 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
-// Static Pages
-import LandingPage from "./features/LandingPage";
-import Login from "./features/login";
-
-// Role Dashboards (Static)
-import WalletPage from "./features/learner/WalletPage";
-import VCDetailWrapper from "./features/learner/VCDetailwrapper";
-import VerifierPage from "./features/employer/VerifierPage";
-import IssuerPage from "./features/institution/IssuerPage";
+// Import from root src/ directory
+import LandingPage from "./LandingPage.jsx";
+import Login from "./Login.jsx";
+import WalletPage from "./WalletPage.jsx";
+import VerifierPage from "./VerifierPage.jsx";
+import IssuerPage from "./IssuerPage.jsx";
 
 const App = () => {
   return (
@@ -21,7 +18,6 @@ const App = () => {
 
         {/* Learner routes */}
         <Route path="/dashboard/learner" element={<WalletPage />} />
-        <Route path="/learner/vc/:id" element={<VCDetailWrapper />} />
 
         {/* Employer route */}
         <Route path="/dashboard/employer" element={<VerifierPage />} />
