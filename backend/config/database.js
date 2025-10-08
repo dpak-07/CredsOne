@@ -1,63 +1,155 @@
+// db/databaseManager.js
 /**
- * Database Configuration
- * MongoDB Atlas connection setup with Mongoose
+ * Database Configuration + Detailed Debug Logs
+ * MongoDB Atlas connection setup with Mongoose + Winston logging
  */
 
 const mongoose = require('mongoose');
+const winston = require('winston');
+const os = require('os');
 
 class DatabaseManager {
   constructor() {
     this.isConnected = false;
     this.connectionAttempts = 0;
-    this.maxRetries = 3;
+    this.maxRetries = parseInt(process.env.MONGO_MAX_RETRIES || '3', 10);
+    this.retryDelayMs = parseInt(process.env.MONGO_RETRY_DELAY_MS || '5000', 10);
+
+    // Initialize logger
+    const level = process.env.LOG_LEVEL || 'info';
+    const transports = [
+      new winston.transports.Console({ stderrLevels: ['error'] })
+    ];
+    if (process.env.LOG_TO_FILE === 'true') {
+      transports.push(new winston.transports.File({ filename: process.env.LOG_FILE || 'mongo-debug.log' }));
+    }
+    this.logger = winston.createLogger({
+      level,
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.printf(({ timestamp, level, message }) => `${timestamp} [${level.toUpperCase()}] ${message}`)
+      ),
+      transports
+    });
+
+    // If using mongoose debug mode for queries
+    if (process.env.MONGO_DEBUG === 'true') {
+      mongoose.set('debug', (collectionName, method, query, doc, options) => {
+        try {
+          const qStr = JSON.stringify(query);
+          const dStr = doc ? JSON.stringify(doc) : '';
+          this.logger.debug(`MONGODB QUERY → ${collectionName}.${method}(${qStr}) ${dStr}`);
+        } catch (err) {
+          this.logger.debug(`MONGODB QUERY → ${collectionName}.${method} (could not stringify query)`);
+        }
+      });
+    }
+
+    // Global plugin to log writes/uploads
+    mongoose.plugin((schema) => {
+      // pre save
+      schema.pre('save', function (next) {
+        this.__startSave = Date.now();
+        const modelName = this.constructor.modelName || 'UnknownModel';
+        // Do not log entire doc in production unless explicit debug
+        this.constructor.db && this.constructor.db.client; // no-op to avoid lint errors
+        this.loggerSafe = this.loggerSafe || (() => {}); // fallback
+        next();
+      });
+
+      // post save
+      schema.post('save', function (doc) {
+        const modelName = doc.constructor.modelName || 'UnknownModel';
+        const id = doc._id;
+        // minimal safe info
+        DatabaseManager.globalLogger.debug(`MODEL SAVE → ${modelName}._id=${id} (duration=${Date.now() - (this.__startSave || Date.now())}ms)`);
+      });
+
+      // updateOne / findOneAndUpdate etc.
+      schema.pre('updateOne', function (next) {
+        this.__startOp = Date.now();
+        next();
+      });
+      schema.post('updateOne', function (res) {
+        const modelName = this.model ? this.model.modelName : 'UnknownModel';
+        DatabaseManager.globalLogger.debug(`MODEL updateOne → ${modelName} (duration=${Date.now() - (this.__startOp || Date.now())}ms)`);
+      });
+
+      schema.pre('insertMany', function (next) {
+        this.__startOp = Date.now();
+        next();
+      });
+      schema.post('insertMany', function (docs) {
+        DatabaseManager.globalLogger.debug(`MODEL insertMany → count=${docs.length} (duration=${Date.now() - (this.__startOp || Date.now())}ms)`);
+      });
+
+      schema.post('remove', function (doc) {
+        const modelName = doc.constructor.modelName || 'UnknownModel';
+        DatabaseManager.globalLogger.debug(`MODEL REMOVE → ${modelName}._id=${doc._id}`);
+      });
+    });
+
+    // Expose logger to static context used in plugin closures
+    DatabaseManager.globalLogger = this.logger;
   }
 
+  // main connect function
   async connectDB() {
     try {
-      // Validate MongoDB URI
       if (!process.env.MONGODB_URI) {
-        throw new Error('❌ MONGODB_URI is not defined in environment variables');
+        throw new Error('MONGODB_URI is not defined in environment variables');
       }
 
-      // Mask password in logs for security
+      this.connectionAttempts++;
       const maskedURI = this.maskMongoURI(process.env.MONGODB_URI);
-      console.log(`🔗 Attempting to connect to MongoDB Atlas: ${maskedURI}`);
+      this.logger.info(`Attempting to connect to MongoDB Atlas (attempt ${this.connectionAttempts}/${this.maxRetries}). URI: ${maskedURI}`);
 
       const options = {
         useNewUrlParser: true,
         useUnifiedTopology: true,
-        serverSelectionTimeoutMS: 30000, // Increased timeout for cloud
-        socketTimeoutMS: 45000,
-        maxPoolSize: 10, // Connection pool size
-        minPoolSize: 5,
+        serverSelectionTimeoutMS: parseInt(process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS || '30000', 10),
+        socketTimeoutMS: parseInt(process.env.MONGO_SOCKET_TIMEOUT_MS || '45000', 10),
+        maxPoolSize: parseInt(process.env.MONGO_MAX_POOL_SIZE || '10', 10),
+        minPoolSize: parseInt(process.env.MONGO_MIN_POOL_SIZE || '0', 10),
         retryWrites: true,
         w: 'majority',
-        heartbeatFrequencyMS: 10000, // Keep connection alive
+        heartbeatFrequencyMS: parseInt(process.env.MONGO_HEARTBEAT_MS || '10000', 10),
       };
+
+      // Log options but remove anything sensitive
+      const safeOptions = Object.assign({}, options);
+      this.logger.debug(`Connection options: ${JSON.stringify(safeOptions)}`);
+
+      // Extra environment context
+      this.logger.debug(`Node env: ${process.env.NODE_ENV || 'undefined'}, Hostname: ${os.hostname()}, PID: ${process.pid}`);
+
+      // Attach listeners before connecting for earliest coverage
+      this.setupEventHandlers();
 
       const conn = await mongoose.connect(process.env.MONGODB_URI, options);
 
       this.isConnected = true;
       this.connectionAttempts = 0;
 
-      console.log(`✅ MongoDB Atlas Connected Successfully!`);
-      console.log(`   Host: ${conn.connection.host}`);
-      console.log(`   Database: ${conn.connection.name}`);
-      console.log(`   Port: ${conn.connection.port}`);
-      console.log(`   Ready State: ${this.getReadyState(conn.connection.readyState)}`);
+      this.logger.info('MongoDB Atlas Connected Successfully!');
+      this.logger.info(`   Host: ${conn.connection.host}`);
+      this.logger.info(`   Database: ${conn.connection.name}`);
+      this.logger.info(`   Port: ${conn.connection.port}`);
+      this.logger.info(`   Ready State: ${this.getReadyState(conn.connection.readyState)}`);
+      // list collections - don't stringify full content
+      try {
+        const collections = Object.keys(conn.connection.collections || {});
+        this.logger.debug(`Collections present: ${collections.join(', ') || '<none>'}`);
+      } catch (err) {
+        this.logger.debug('Could not get collections metadata: ' + (err.message || err));
+      }
 
-      this.setupEventHandlers();
       return conn;
-
     } catch (error) {
-      this.connectionAttempts++;
-      
-      console.error(`❌ MongoDB Atlas Connection Attempt ${this.connectionAttempts} Failed:`, error.message);
-
-      // Retry logic
+      this.logger.error(`MongoDB Connection Attempt ${this.connectionAttempts} Failed: ${error.message}`);
       if (this.connectionAttempts < this.maxRetries) {
-        console.log(`🔄 Retrying connection in 5 seconds... (${this.connectionAttempts}/${this.maxRetries})`);
-        await this.delay(5000);
+        this.logger.warn(`Retrying connection in ${this.retryDelayMs}ms... (${this.connectionAttempts}/${this.maxRetries})`);
+        await this.delay(this.retryDelayMs);
         return this.connectDB();
       } else {
         await this.handleConnectionFailure(error);
@@ -66,8 +158,11 @@ class DatabaseManager {
   }
 
   maskMongoURI(uri) {
-    // Mask password in connection string for security
-    return uri.replace(/mongodb\+srv:\/\/([^:]+):([^@]+)@/, 'mongodb+srv://$1:****@');
+    try {
+      return uri.replace(/mongodb\+srv:\/\/([^:]+):([^@]+)@/, 'mongodb+srv://$1:****@');
+    } catch (err) {
+      return 'mongodb+srv://<masked_uri>';
+    }
   }
 
   getReadyState(state) {
@@ -81,89 +176,94 @@ class DatabaseManager {
   }
 
   setupEventHandlers() {
-    // Connection events
+    // Avoid double-binding if called multiple times
+    if (this._handlersAttached) return;
+    this._handlersAttached = true;
+
+    mongoose.connection.on('connecting', () => {
+      this.logger.info('Mongoose connecting...');
+    });
+
+    mongoose.connection.on('open', () => {
+      this.logger.info('Mongoose connection open');
+    });
+
     mongoose.connection.on('connected', () => {
-      console.log('✅ Mongoose connected to MongoDB Atlas');
+      this.logger.info('Mongoose connected to MongoDB Atlas (event)');
       this.isConnected = true;
+      // log server info
+      const { host, port } = mongoose.connection;
+      this.logger.debug(`Connected event: host=${host}, port=${port}`);
     });
 
     mongoose.connection.on('error', (err) => {
-      console.error('❌ Mongoose connection error:', err.message);
+      this.logger.error(`Mongoose connection error: ${err && err.message ? err.message : err}`);
       this.isConnected = false;
     });
 
     mongoose.connection.on('disconnected', () => {
-      console.log('⚠️  Mongoose disconnected from MongoDB Atlas');
+      this.logger.warn('Mongoose disconnected');
       this.isConnected = false;
     });
 
     mongoose.connection.on('reconnected', () => {
-      console.log('🔁 Mongoose reconnected to MongoDB Atlas');
+      this.logger.info('Mongoose reconnected to MongoDB Atlas');
       this.isConnected = true;
     });
 
     mongoose.connection.on('reconnectFailed', () => {
-      console.error('❌ Mongoose reconnection failed');
+      this.logger.error('Mongoose reconnection failed');
       this.isConnected = false;
     });
 
-    // Graceful shutdown
-    process.on('SIGINT', this.gracefulShutdown.bind(this));
-    process.on('SIGTERM', this.gracefulShutdown.bind(this));
+    // Index build events (fired on `Model.on('index', ...)` — mongoose supports this on connection)
+    mongoose.connection.on('index', (err) => {
+      if (err) {
+        this.logger.error('Index build error: ' + (err.message || err));
+      } else {
+        this.logger.debug('Index build complete (connection event)');
+      }
+    });
+
+    // DNS and topology warnings - mongoose emits no direct DNS event; we can log serverSelectionTimeout errors via `error`.
+    // Graceful shutdown - prefer once handlers so we don't attach duplicates
+    const shutdown = this.gracefulShutdown.bind(this);
+    process.once('SIGINT', shutdown);
+    process.once('SIGTERM', shutdown);
   }
 
   async gracefulShutdown() {
-    console.log('\n🛑 Received shutdown signal. Closing MongoDB connection...');
-    
+    this.logger.warn('Received shutdown signal. Closing MongoDB connection...');
     try {
-      await mongoose.connection.close();
-      console.log('✅ MongoDB Atlas connection closed gracefully');
+      await mongoose.connection.close(false);
+      this.logger.info('MongoDB Atlas connection closed gracefully');
       process.exit(0);
     } catch (err) {
-      console.error('❌ Error closing MongoDB connection:', err);
+      this.logger.error('Error closing MongoDB connection: ' + (err && err.message ? err.message : err));
       process.exit(1);
     }
   }
 
   async handleConnectionFailure(error) {
-    console.error('❌ All MongoDB Atlas connection attempts failed');
-    
-    // Detailed troubleshooting based on error type
+    this.logger.error('All MongoDB Atlas connection attempts failed: ' + (error && error.message ? error.message : error));
+
+    // Detailed help in development only
     if (process.env.NODE_ENV === 'development') {
-      console.log('\n🔧 MongoDB Atlas Troubleshooting Guide:');
-      
-      if (error.message.includes('authentication failed')) {
-        console.log('   🔐 Authentication Issue:');
-        console.log('   • Check your username and password in MONGODB_URI');
-        console.log('   • Verify the database user exists in Atlas');
-        console.log('   • Ensure the user has correct privileges');
-      } else if (error.message.includes('getaddrinfo')) {
-        console.log('   🌐 Network/DNS Issue:');
-        console.log('   • Check your internet connection');
-        console.log('   • Verify the cluster URL is correct');
-        console.log('   • Ensure your IP is whitelisted in Atlas');
-      } else if (error.message.includes('querySrv')) {
-        console.log('   🔗 SRV Record Issue:');
-        console.log('   • Ensure you\'re using mongodb+srv:// format');
-        console.log('   • Check your DNS settings');
+      this.logger.info('MongoDB Troubleshooting Suggestions:');
+      if ((error.message || '').toLowerCase().includes('authentication')) {
+        this.logger.info(' - Authentication issue: check username/password, user privileges.');
+      } else if ((error.message || '').toLowerCase().includes('getaddrinfo')) {
+        this.logger.info(' - DNS/network issue: check internet, cluster hostname, whitelisted IP.');
+      } else if ((error.message || '').toLowerCase().includes('querysrv')) {
+        this.logger.info(' - SRV record issue: ensure mongodb+srv:// and DNS is resolving.');
       } else {
-        console.log('   💡 General Tips:');
-        console.log('   • Verify MONGODB_URI format in .env file');
-        console.log('   • Check Atlas cluster status (might be down)');
-        console.log('   • Ensure database exists in Atlas');
-        console.log('   • Check Network Access in Atlas dashboard');
+        this.logger.info(' - General: verify MONGODB_URI format, Atlas cluster status, network access.');
       }
-      
-      console.log('\n   📖 Atlas Setup Checklist:');
-      console.log('   1. Go to MongoDB Atlas → Clusters');
-      console.log('   2. Click "Connect" on your cluster');
-      console.log('   3. Choose "Connect your application"');
-      console.log('   4. Copy the connection string');
-      console.log('   5. Replace username, password, and database name');
-      console.log('   6. Add your IP to Network Access');
-      console.log('   7. Create a database user with read/write privileges\n');
+    } else {
+      this.logger.info('Set NODE_ENV=development for more detailed troubleshooting output.');
     }
-    
+
+    // Allow process to exit with non-zero code so orchestrators (k8s) can restart
     process.exit(1);
   }
 
@@ -171,14 +271,22 @@ class DatabaseManager {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // Utility method to check connection status
+  // Utility to get connection status snapshot
   getConnectionStatus() {
+    let collections = [];
+    try {
+      collections = Object.keys(mongoose.connection.collections || {});
+    } catch (err) {
+      // ignore
+    }
     return {
       isConnected: this.isConnected,
       readyState: mongoose.connection.readyState,
       host: mongoose.connection.host,
       name: mongoose.connection.name,
-      collections: Object.keys(mongoose.connection.collections)
+      port: mongoose.connection.port,
+      collections,
+      pid: process.pid
     };
   }
 }
@@ -186,6 +294,4 @@ class DatabaseManager {
 // Create and export singleton instance
 const databaseManager = new DatabaseManager();
 module.exports = databaseManager.connectDB.bind(databaseManager);
-
-// Also export the manager for advanced usage
 module.exports.DatabaseManager = databaseManager;

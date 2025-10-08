@@ -1,14 +1,11 @@
-/**
- * Audit Log Controller
- */
-
+// backend/controllers/auditController.js
 const AuditLog = require('../models/AuditLog');
 const Certificate = require('../models/Certificate');
 const Verification = require('../models/Verification');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 /**
- * Get audit logs with pagination and filters
+ * GET /api/audit? page/filters
  */
 const getAuditLogs = asyncHandler(async (req, res) => {
   const {
@@ -22,7 +19,6 @@ const getAuditLogs = asyncHandler(async (req, res) => {
 
   const query = {};
 
-  // Apply filters
   if (action) query.action = action;
   if (userId) query['actor.userId'] = userId;
   if (startDate || endDate) {
@@ -47,8 +43,8 @@ const getAuditLogs = asyncHandler(async (req, res) => {
       _id: log._id,
       action: log.action,
       actor: {
-        userId: log.actor.userId,
-        username: log.actor.username,
+        userId: log.actor.userId?._id || log.actor.userId,
+        username: log.actor.username || log.actor.userId?.username,
         role: log.actor.role
       },
       target: log.target,
@@ -67,7 +63,8 @@ const getAuditLogs = asyncHandler(async (req, res) => {
 });
 
 /**
- * Export audit logs
+ * GET /api/audit/export
+ * supports ?format=csv|json
  */
 const exportAuditLogs = asyncHandler(async (req, res) => {
   const { format = 'json', startDate, endDate } = req.query;
@@ -79,98 +76,85 @@ const exportAuditLogs = asyncHandler(async (req, res) => {
   const exportData = await AuditLog.exportLogs(filters, format);
 
   if (format === 'csv') {
-    // Generate CSV
     const { headers, rows } = exportData;
     let csv = headers.join(',') + '\n';
     rows.forEach(row => {
-      csv += row.map(cell => `"${cell}"`).join(',') + '\n';
+      csv += row.map(cell => `"${String(cell || '')}"`).join(',') + '\n';
     });
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="audit-logs-${Date.now()}.csv"`);
     res.send(csv);
-  } else {
-    // JSON format
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="audit-logs-${Date.now()}.json"`);
-    res.json({
-      success: true,
-      logs: exportData.logs,
-      exportedAt: new Date().toISOString()
-    });
+    return;
   }
+
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="audit-logs-${Date.now()}.json"`);
+  res.json({
+    success: true,
+    logs: exportData
+  });
 });
 
 /**
- * Get audit statistics
+ * GET /api/audit/stats
  */
 const getAuditStats = asyncHandler(async (req, res) => {
-  const { startDate, endDate } = req.query;
-
-  // Get certificate statistics
+  // Certificates stats
   const certificateStats = await Certificate.aggregate([
     {
       $group: {
         _id: null,
         totalCertificates: { $sum: 1 },
-        byBadge: {
-          $push: '$badge'
-        },
-        byStatus: {
-          $push: '$status'
-        }
+        byBadge: { $push: '$badge' },
+        byStatus: { $push: '$status' }
       }
     }
   ]);
 
-  const certStats = certificateStats[0] || {
-    totalCertificates: 0,
-    byBadge: [],
-    byStatus: []
-  };
+  const certStats = certificateStats[0] || { totalCertificates: 0, byBadge: [], byStatus: [] };
 
-  // Count certificates by badge
   const certificatesByBadge = certStats.byBadge.reduce((acc, badge) => {
+    if (!badge) return acc;
     acc[badge] = (acc[badge] || 0) + 1;
     return acc;
   }, {});
 
-  // Count certificates by status
   const certificatesByStatus = certStats.byStatus.reduce((acc, status) => {
+    if (!status) return acc;
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
 
-  // Get verification statistics
+  // Verifications
   const verificationStats = await Verification.aggregate([
     {
       $group: {
         _id: null,
         totalVerifications: { $sum: 1 },
-        validVerifications: {
-          $sum: { $cond: ['$isValid', 1, 0] }
-        }
+        validVerifications: { $sum: { $cond: ['$isValid', 1, 0] } }
       }
     }
   ]);
 
-  const verStats = verificationStats[0] || {
-    totalVerifications: 0,
-    validVerifications: 0
-  };
+  const verStats = verificationStats[0] || { totalVerifications: 0, validVerifications: 0 };
 
-  // Get recent activity
+  // Recent activity
   const recentActivity = await AuditLog.find()
     .sort({ createdAt: -1 })
     .limit(10)
     .populate('actor.userId', 'username fullName')
     .lean();
 
-  // Get activity summary
-  const activitySummary = await AuditLog.getActivitySummary({
-    startDate,
-    endDate
-  });
+  // activitySummary may be optional
+  let activitySummary = [];
+  if (typeof AuditLog.getActivitySummary === 'function') {
+    try {
+      activitySummary = await AuditLog.getActivitySummary({}, 30);
+    } catch (e) {
+      activitySummary = [];
+    }
+  }
 
   res.json({
     success: true,
@@ -181,7 +165,7 @@ const getAuditStats = asyncHandler(async (req, res) => {
       certificatesByStatus,
       recentActivity: recentActivity.map(log => ({
         action: log.action,
-        actor: log.actor.username,
+        actor: log.actor?.username || (log.actor?.userId?.username ?? 'System'),
         timestamp: log.createdAt,
         badge: log.badge
       })),
@@ -191,7 +175,7 @@ const getAuditStats = asyncHandler(async (req, res) => {
 });
 
 /**
- * Get activity summary by action
+ * GET /api/audit/summary
  */
 const getActivitySummary = asyncHandler(async (req, res) => {
   const { startDate, endDate, userId, action } = req.query;
@@ -202,7 +186,9 @@ const getActivitySummary = asyncHandler(async (req, res) => {
   if (userId) filters.userId = userId;
   if (action) filters.action = action;
 
-  const summary = await AuditLog.getActivitySummary(filters);
+  const summary = typeof AuditLog.getActivitySummary === 'function'
+    ? await AuditLog.getActivitySummary(filters)
+    : [];
 
   res.json({
     success: true,
@@ -211,7 +197,7 @@ const getActivitySummary = asyncHandler(async (req, res) => {
 });
 
 /**
- * Get user activity logs
+ * GET /api/audit/user/:userId
  */
 const getUserActivity = asyncHandler(async (req, res) => {
   const { userId } = req.params;
@@ -224,7 +210,14 @@ const getUserActivity = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    logs: logs.map(log => log.getPublicData())
+    logs: logs.map(log => ({
+      _id: log._id,
+      action: log.action,
+      actor: log.actor,
+      target: log.target,
+      timestamp: log.createdAt,
+      details: log.details
+    }))
   });
 });
 

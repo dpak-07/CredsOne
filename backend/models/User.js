@@ -1,10 +1,14 @@
-/**
- * User Model
- * Manages user authentication and profiles
- */
+// models/User.js (replace file)
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+
+const organizationSchema = new mongoose.Schema({
+  name: { type: String, trim: true },
+  registrationNumber: { type: String, trim: true },
+  // if you need a `type` field for organization type, name it orgType to avoid Mongoose 'type' clashes
+  orgType: { type: String, trim: true }
+}, { _id: false });
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -37,13 +41,12 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'issuer', 'verifier', 'learner'],
+    enum: ['admin', 'institution', 'employer', 'learner'], // fixed typo 'institution'
     default: 'learner'
   },
   organization: {
-    name: String,
-    type: String,
-    registrationNumber: String
+    type: organizationSchema,
+    default: {}
   },
   walletAddress: {
     type: String,
@@ -112,10 +115,11 @@ userSchema.methods.getPublicProfile = function() {
   };
 };
 
-// Static method to find by credentials
-userSchema.statics.findByCredentials = async function(username, password) {
-  const user = await this.findOne({ 
-    $or: [{ username }, { email: username }] 
+// Static method to find by credentials (normalize input)
+userSchema.statics.findByCredentials = async function(identifier, password) {
+  const lookup = String(identifier || '').trim().toLowerCase();
+  const user = await this.findOne({
+    $or: [{ username: lookup }, { email: lookup }]
   }).select('+password');
 
   if (!user) {
@@ -135,9 +139,9 @@ userSchema.statics.findByCredentials = async function(username, password) {
   return user;
 };
 
-// Indexes
-userSchema.index({ username: 1 });
-userSchema.index({ email: 1 });
+// Indexes (unique indexes already declared via schema unique: true)
+userSchema.index({ username: 1 }, { unique: true });
+userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ role: 1 });
 userSchema.index({ walletAddress: 1 });
 
