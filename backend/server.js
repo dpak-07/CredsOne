@@ -92,6 +92,20 @@ app.use(notFound);
 
 // Error Handler
 app.use(errorHandler);
+// Debug Middleware (logs incoming requests)
+app.use((req, res, next) => {
+  console.log("===== 🛰️ Incoming Request =====");
+  console.log("🔹 Time:", new Date().toISOString());
+  console.log("🔹 Method:", req.method);
+  console.log("🔹 URL:", req.originalUrl);
+  console.log("🔹 Headers:", req.headers);
+  console.log("🔹 Body:", req.body);
+  console.log("🔹 Query:", req.query);
+  console.log("🔹 Params:", req.params);
+  console.log("================================");
+  next();
+});
+
 
 // Start Server
 const PORT = process.env.PORT || 5000;
@@ -103,7 +117,7 @@ const server = app.listen(PORT, () => {
 ║               🎓 CredsOne Backend Server 🎓               ║
 ║                                                           ║
 ║  Server running on port ${PORT}                              ║
-║  Environment: ${process.env.NODE_ENV || 'development'}                              ║
+║  Environment: ${process.env.NODE_ENV || 'development'}                                  ║
 ║  Database: ${process.env.MONGODB_URI ? 'Connected' : 'Not configured'}                                  ║
 ║                                                           ║
 ║  Mock Mode:                                               ║
@@ -112,7 +126,7 @@ const server = app.listen(PORT, () => {
 ║    - OCR: ${process.env.MOCK_OCR === 'true' ? '✓' : '✗'}                                          ║
 ║    - DigiLocker: ${process.env.MOCK_DIGILOCKER === 'true' ? '✓' : '✗'}                                   ║
 ║                                                           ║
-║  API Documentation: http://localhost:${PORT}/health          ║
+║  API Documentation: http://localhost:${PORT}/health       ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
   `);

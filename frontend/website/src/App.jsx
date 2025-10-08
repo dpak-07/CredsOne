@@ -9,7 +9,7 @@ import { ROUTES } from "./utils/routes";
 import Landing from "./pages/Landing";
 import VerifyPublic from "./pages/VerifyPublic";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
+import Register from "./pages/Login";
 // import FAQ from "./pages/FAQ"; // <-- if you have FAQ, import it and add route
 import NotFound from "./pages/NotFound";
 
@@ -41,8 +41,6 @@ function App() {
             <Route path={ROUTES.VERIFY} element={<VerifyPublic />} />
             <Route path={ROUTES.LOGIN} element={<Login />} />
             <Route path={ROUTES.REGISTER} element={<Register />} />
-            {/* remove or uncomment FAQ route if you add FAQ component */}
-            {/* <Route path="/faq" element={<FAQ />} /> */}
 
             {/* 🎓 LEARNER ROUTES */}
             <Route path="/learner/*" element={<PrivateRoute allowedRoles={["learner"]} />}>
