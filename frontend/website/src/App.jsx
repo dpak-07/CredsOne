@@ -10,7 +10,7 @@ import Landing from "./pages/Landing";
 import VerifyPublic from "./pages/VerifyPublic";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-//import FAQ from "./pages/FAQ";
+// import FAQ from "./pages/FAQ"; // <-- if you have FAQ, import it and add route
 import NotFound from "./pages/NotFound";
 
 // 🎓 --- Learner Pages ---
@@ -41,13 +41,11 @@ function App() {
             <Route path={ROUTES.VERIFY} element={<VerifyPublic />} />
             <Route path={ROUTES.LOGIN} element={<Login />} />
             <Route path={ROUTES.REGISTER} element={<Register />} />
-            <Route path="/faq" element={<FAQ />} />
+            {/* remove or uncomment FAQ route if you add FAQ component */}
+            {/* <Route path="/faq" element={<FAQ />} /> */}
 
             {/* 🎓 LEARNER ROUTES */}
-            <Route
-              path="/learner/*"
-              element={<PrivateRoute allowedRoles={["learner"]} />}
-            >
+            <Route path="/learner/*" element={<PrivateRoute allowedRoles={["learner"]} />}>
               <Route index element={<LearnerDashboard />} />
               <Route path="profile" element={<LearnerProfile />} />
               <Route path="wallet" element={<LearnerWallet />} />
@@ -55,20 +53,14 @@ function App() {
             </Route>
 
             {/* 💼 EMPLOYER ROUTES */}
-            <Route
-              path="/employer/*"
-              element={<PrivateRoute allowedRoles={["employer"]} />}
-            >
+            <Route path="/employer/*" element={<PrivateRoute allowedRoles={["employer"]} />}>
               <Route index element={<EmployerDashboard />} />
               <Route path="search" element={<EmployerSearch />} />
               <Route path="*" element={<Navigate to="/employer" replace />} />
             </Route>
 
             {/* 🏫 INSTITUTION ROUTES */}
-            <Route
-              path="/institution/*"
-              element={<PrivateRoute allowedRoles={["institution"]} />}
-            >
+            <Route path="/institution/*" element={<PrivateRoute allowedRoles={["institution"]} />}>
               <Route index element={<InstitutionDashboard />} />
               <Route path="issue" element={<IssueCertificate />} />
               <Route path="*" element={<Navigate to="/institution" replace />} />
