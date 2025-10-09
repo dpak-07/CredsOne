@@ -1,39 +1,41 @@
-﻿// Learner Dashboard
-// src/pages/learner/LearnerDashboard.jsx
-import React from "react";
-import { Link } from "react-router-dom";
+﻿import { Routes, Route, Link } from "react-router-dom";
+import Profile from "./Profile";
+import Wallet from "./Wallet";
+import Analytics from "./Analytics";
+import History from "./History";
 
 export default function LearnerDashboard() {
   return (
-    <div className="min-h-[60vh] p-8">
-      <div className="max-w-5xl mx-auto">
-        <header className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Learner Dashboard</h1>
-          <div>
-            <Link to="/learner/profile" className="text-sm px-3 py-2 rounded bg-indigo-600 text-white">Profile</Link>
-          </div>
-        </header>
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white shadow-md p-6">
+        <h2 className="text-xl font-bold mb-6">Learner Dashboard</h2>
+        <ul className="space-y-4">
+          <li>
+            <Link to="profile" className="text-blue-600 hover:underline">Profile</Link>
+          </li>
+          <li>
+            <Link to="wallet" className="text-blue-600 hover:underline">Wallet</Link>
+          </li>
+          <li>
+            <Link to="analytics" className="text-blue-600 hover:underline">Analytics</Link>
+          </li>
+          <li>
+            <Link to="history" className="text-blue-600 hover:underline">History</Link>
+          </li>
+        </ul>
+      </aside>
 
-        <section className="grid gap-4 md:grid-cols-2">
-          <div className="p-4 rounded-xl border bg-white/95 shadow">
-            <h3 className="font-semibold">My Credentials</h3>
-            <p className="text-sm text-slate-500 mt-2">No credentials yet — issue or upload to see them here.</p>
-          </div>
-
-          <div className="p-4 rounded-xl border bg-white/95 shadow">
-            <h3 className="font-semibold">Wallet</h3>
-            <p className="text-sm text-slate-500 mt-2">View balances, tokens, and transaction history.</p>
-          </div>
-        </section>
-
-        <section className="mt-6 p-4 rounded-xl border bg-white/95 shadow">
-          <h3 className="font-semibold">Quick actions</h3>
-          <ul className="mt-3 space-y-2 text-sm">
-            <li><Link to="/learner/wallet" className="text-indigo-600">Open Wallet</Link></li>
-            <li><Link to="/" className="text-indigo-600">Back to Landing</Link></li>
-          </ul>
-        </section>
-      </div>
+      {/* Main Content */}
+      <main className="flex-1 p-8">
+        <Routes>
+          <Route path="profile" element={<Profile />} />
+          <Route path="wallet" element={<Wallet />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="history" element={<History />} />
+          <Route path="" element={<Profile />} /> {/ Default to Profile */}
+        </Routes>
+      </main>
     </div>
   );
 }

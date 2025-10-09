@@ -1,5 +1,4 @@
-// src/App.jsx
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import PrivateRoute from "./components/PrivateRoute";
@@ -10,13 +9,14 @@ import Landing from "./pages/Landing";
 import VerifyPublic from "./pages/VerifyPublic";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-// import FAQ from "./pages/FAQ"; // <-- if you have FAQ, import it and add route
 import NotFound from "./pages/NotFound";
 
 // 🎓 --- Learner Pages ---
 import LearnerDashboard from "./pages/learner/LearnerDashboard";
 import LearnerProfile from "./pages/learner/Profile";
 import LearnerWallet from "./pages/learner/Wallet";
+const LearnerAnalytics = lazy(() => import("./pages/learner/Analytics"));
+const LearnerHistory = lazy(() => import("./pages/learner/History"));
 
 // 💼 --- Employer Pages ---
 import EmployerDashboard from "./pages/employer/EmployerDashboard";
@@ -35,40 +35,51 @@ function App() {
       <Router>
         <Header />
         <main className="min-h-screen bg-gray-50 text-gray-900">
-          <Routes>
-            {/* 🌍 PUBLIC ROUTES */}
-            <Route path={ROUTES.HOME} element={<Landing />} />
-            <Route path={ROUTES.VERIFY} element={<VerifyPublic />} />
-            <Route path={ROUTES.LOGIN} element={<Login />} />
-            <Route path={ROUTES.REGISTER} element={<Register />} />
-            {/* remove or uncomment FAQ route if you add FAQ component */}
-            {/* <Route path="/faq" element={<FAQ />} /> */}
+          <Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
+            <Routes>
+              {/* 🌍 PUBLIC ROUTES */}
+              <Route path={ROUTES.HOME} element={<Landing />} />
+              <Route path={ROUTES.VERIFY} element={<VerifyPublic />} />
+              <Route path={ROUTES.LOGIN} element={<Login />} />
+              <Route path={ROUTES.REGISTER} element={<Register />} />
 
-            {/* 🎓 LEARNER ROUTES */}
-            <Route path="/learner/*" element={<PrivateRoute allowedRoles={["learner"]} />}>
-              <Route index element={<LearnerDashboard />} />
-              <Route path="profile" element={<LearnerProfile />} />
-              <Route path="wallet" element={<LearnerWallet />} />
-              <Route path="*" element={<Navigate to="/learner" replace />} />
-            </Route>
+              {/* 🎓 LEARNER ROUTES */}
+              <Route
+                path="/learner/*"
+                element={<PrivateRoute allowedRoles={["learner"]} />}
+              >
+                <Route index element={<LearnerDashboard />} />
+                <Route path="profile" element={<LearnerProfile />} />
+                <Route path="wallet" element={<LearnerWallet />} />
+                <Route path="analytics" element={<LearnerAnalytics />} />
+                <Route path="history" element={<LearnerHistory />} />
+                <Route path="*" element={<Navigate to="/learner" replace />} />
+              </Route>
 
-            {/* 💼 EMPLOYER ROUTES */}
-            <Route path="/employer/*" element={<PrivateRoute allowedRoles={["employer"]} />}>
-              <Route index element={<EmployerDashboard />} />
-              <Route path="search" element={<EmployerSearch />} />
-              <Route path="*" element={<Navigate to="/employer" replace />} />
-            </Route>
+              {/* 💼 EMPLOYER ROUTES */}
+              <Route
+                path="/employer/*"
+                element={<PrivateRoute allowedRoles={["employer"]} />}
+              >
+                <Route index element={<EmployerDashboard />} />
+                <Route path="search" element={<EmployerSearch />} />
+                <Route path="*" element={<Navigate to="/employer" replace />} />
+              </Route>
 
-            {/* 🏫 INSTITUTION ROUTES */}
-            <Route path="/institution/*" element={<PrivateRoute allowedRoles={["institution"]} />}>
-              <Route index element={<InstitutionDashboard />} />
-              <Route path="issue" element={<IssueCertificate />} />
-              <Route path="*" element={<Navigate to="/institution" replace />} />
-            </Route>
+              {/* 🏫 INSTITUTION ROUTES */}
+              <Route
+                path="/institution/*"
+                element={<PrivateRoute allowedRoles={["institution"]} />}
+              >
+                <Route index element={<InstitutionDashboard />} />
+                <Route path="issue" element={<IssueCertificate />} />
+                <Route path="*" element={<Navigate to="/institution" replace />} />
+              </Route>
 
-            {/* ⚠ 404 */}
-            <Route path={ROUTES.NOT_FOUND} element={<NotFound />} />
-          </Routes>
+              {/* ⚠ 404 */}
+              <Route path={ROUTES.NOT_FOUND} element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </main>
         <Footer />
       </Router>
